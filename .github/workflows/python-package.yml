@@ -85,6 +85,9 @@ jobs:
     - name: Install test dependencies
       run: |
         pip install pytest
+        # work around lack of release version fix for oscrypto issue #75
+        # https://github.com/wbond/oscrypto/pull/76
+        pip install --user --force-reinstall --break-system-packages git+https://github.com/wbond/oscrypto.git@master
 
     - name: Install package
       run: |
