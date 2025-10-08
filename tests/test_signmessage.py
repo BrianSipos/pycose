@@ -128,6 +128,18 @@ def test_ecdsa_allow_key_curve_mismatch():
     msg.encode(detached_payload=payload)
 
 
+def test_espdsa_success():
+    key = EC2Key.generate_key(crv='P_384')
+
+    signer = CoseSignature(phdr={'ALG': 'ESP384'})
+    signer.key = key
+
+    msg = SignMessage(phdr={}, signers=[signer])
+
+    payload = "signed message".encode('utf-8')
+    msg.encode(detached_payload=payload)
+
+
 def test_espdsa_fail_on_key_curve_mismatch():
     key = EC2Key.generate_key(crv='P_256')
 
