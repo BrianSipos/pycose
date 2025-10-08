@@ -201,6 +201,11 @@ class _Espdsa(CoseAlgorithm, ABC):
     """ Fully-specified ECDSA family. """
     @classmethod
     @abstractmethod
+    def get_cose_curve_fullname(cls) -> str:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
     def get_curve(cls):
         raise NotImplementedError()
 
@@ -211,23 +216,21 @@ class _Espdsa(CoseAlgorithm, ABC):
 
     @classmethod
     def sign(cls, key: 'EC2', data: bytes) -> bytes:
-        alg_curve = cls.get_curve()
-        if key.crv != alg_curve:
+        if key.crv.fullname != cls.get_cose_curve_fullname():
             raise CoseException(f"Illegal curve for signing: {key.crv}")
 
-        sk = SigningKey.from_secret_exponent(int(hexlify(key.d), 16), curve=alg_curve)
+        sk = SigningKey.from_secret_exponent(int(hexlify(key.d), 16), curve=cls.get_curve())
 
         return sk.sign_deterministic(data, hashfunc=cls.get_hash_func())
 
     @classmethod
     def verify(cls, key: 'EC2', data: bytes, signature: bytes) -> bool:
-        alg_curve = cls.get_curve()
-        if key.crv != alg_curve:
+        if key.crv.fullname != cls.get_cose_curve_fullname():
             raise CoseException(f"Illegal curve for signing: {key.crv}")
 
-        p = Point(curve=alg_curve.curve, x=int(hexlify(key.x), 16), y=int(hexlify(key.y), 16))
+        p = Point(curve=cls.get_curve().curve, x=int(hexlify(key.x), 16), y=int(hexlify(key.y), 16))
 
-        vk = VerifyingKey.from_public_point(p, cls.alg_curve, cls.get_hash_func(), validate_point=True)
+        vk = VerifyingKey.from_public_point(p, cls.get_curve(), cls.get_hash_func(), validate_point=True)
 
         try:
             return vk.verify(signature=signature, data=data, hashfunc=cls.get_hash_func())
@@ -511,6 +514,11 @@ class Esp512(_Espdsa):
     fullname = "ESP512"
 
     @classmethod
+    def get_cose_curve_fullname(cls) -> str:
+        """ Returns a curve object used with this algorithm """
+        return 'P_521'
+
+    @classmethod
     def get_hash_func(cls):
         """ Returns a hash function used with this algorithm """
         return sha512
@@ -535,6 +543,11 @@ class Esp384(_Espdsa):
 
     identifier = -51
     fullname = "ESP384"
+
+    @classmethod
+    def get_cose_curve_fullname(cls) -> str:
+        """ Returns a curve object used with this algorithm """
+        return 'P_384'
 
     @classmethod
     def get_hash_func(cls):
@@ -1179,6 +1192,11 @@ class Esp256(_Espdsa):
 
     identifier = -9
     fullname = "ESP256"
+
+    @classmethod
+    def get_cose_curve_fullname(cls) -> str:
+        """ Returns a curve object used with this algorithm """
+        return 'P_256'
 
     @classmethod
     def get_hash_func(cls):
