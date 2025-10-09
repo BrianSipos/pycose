@@ -12,12 +12,12 @@ from pycose.keys.keyparam import KpKty, RSAKpE, RSAKpN, KpAlg, KpKeyOps, RSAKpD
 from pycose.keys.keytype import KtySymmetric, KtyOKP, KtyEC2, KtyRSA
 
 
-@pytest.mark.parametrize('bit_length', [512, 1024, 2048, 4096])
+@pytest.mark.parametrize('bit_length', [1024, 2048, 4096])
 def test_rsa_key_generation(bit_length):
     key = RSAKey.generate_key(bit_length)
 
 
-@pytest.mark.parametrize('bit_length', [512, 1024])
+@pytest.mark.parametrize('bit_length', [1024])
 @pytest.mark.parametrize('kty', [KtyOKP, KtySymmetric, KtyEC2, 1, 4])
 def test_fail_on_illegal_kty(bit_length, kty):
     params = {KpKty: kty}

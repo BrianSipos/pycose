@@ -200,7 +200,7 @@ def test_fail_on_illegal_kty(crv, kty):
 
 
 def test_remove_empty_keyops_list():
-    cose_key = {KpKty: KtyEC2, EC2KpD: p384_d, KpAlg: Es256, EC2KpCurve: P256, KpKeyOps: []}
+    cose_key = {KpKty: KtyEC2, EC2KpD: p256_d, KpAlg: Es256, EC2KpCurve: P256, KpKeyOps: []}
 
     key = CoseKey.from_dict(cose_key)
 
