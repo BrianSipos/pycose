@@ -301,10 +301,10 @@ class _EcdhHkdf(CoseAlgorithm, ABC):
         return shared_key
 
     @classmethod
-    def derive_kek(cls, curve: 'CoseCurve', private_key: 'EC2', public_key: 'EC2', context: 'CoseKDFContext') -> bytes:
+    def derive_kek(cls, curve: 'CoseCurve', private_key: 'EC2', public_key: 'EC2', salt: Optional[bytes], context: 'CoseKDFContext') -> bytes:
         shared_secret = cls._ecdh(curve, private_key, public_key)
 
-        kdf = HKDF(algorithm=cls.get_hash_func(), length=context.supp_pub_info.key_data_length, salt=None,
+        kdf = HKDF(algorithm=cls.get_hash_func(), length=context.supp_pub_info.key_data_length, salt=salt,
                    info=context.encode(),
                    backend=default_backend())
         return kdf.derive(shared_secret)
@@ -971,8 +971,23 @@ class DirectHKDFAES128(CoseAlgorithm):
     fullname = "DIRECT_HKDF_AES_128"
 
 
+class _DirectHkdf(CoseAlgorithm):
+
+    @classmethod
+    def derive_cek(cls, shared_key: 'SK', salt: Optional[bytes], context: 'CoseKDFContext') -> bytes:
+
+        kdf = HKDF(algorithm=cls.get_hash_func(), length=context.supp_pub_info.key_data_length, salt=salt,
+                   info=context.encode(),
+                   backend=default_backend())
+        return kdf.derive(shared_key.k)
+
+    @classmethod
+    def get_hash_func(cls) -> HashAlgorithm:
+        raise NotImplementedError()
+
+
 @CoseAlgorithm.register_attribute()
-class DirecHKDFSHA512(CoseAlgorithm):
+class DirectHKDFSHA512(_DirectHkdf):
     """
     Shared secret w/ HKDF and SHA-512
 
@@ -985,9 +1000,13 @@ class DirecHKDFSHA512(CoseAlgorithm):
     identifier = - 11
     fullname = "DIRECT_HKDF_SHA_512"
 
+    @classmethod
+    def get_hash_func(cls) -> HashAlgorithm:
+        return SHA512()
+
 
 @CoseAlgorithm.register_attribute()
-class DirectHKDFSHA256(CoseAlgorithm):
+class DirectHKDFSHA256(_DirectHkdf):
     """
     Shared secret w/ HKDF and SHA-256
 
@@ -999,6 +1018,10 @@ class DirectHKDFSHA256(CoseAlgorithm):
 
     identifier = - 10
     fullname = "DIRECT_HKDF_SHA_256"
+
+    @classmethod
+    def get_hash_func(cls) -> HashAlgorithm:
+        return SHA256()
 
 
 @CoseAlgorithm.register_attribute()
