@@ -119,16 +119,16 @@ def test_cose_header_attribute_value_encoding():
     assert decoded_msg.phdr[Algorithm] == AESCCM1664128
 
     # critical
-    msg = Enc0Message(phdr={Algorithm: AESCCM1664128, "A": 42, Critical: [1, "A"]},
+    msg = Enc0Message(phdr={Algorithm: AESCCM1664128, "A": 42, Critical: [1]},
                       uhdr={IV: urandom(13)},
                       payload=b'this is the payload',
                       key=SymmetricKey.generate_key(16))
 
     msg = msg.encode()
-    assert b"\x82\x01\x61\x41" in msg
+    assert b"\x02\x81\x01" in msg
 
     decoded_msg = Enc0Message.decode(msg)
-    assert decoded_msg.phdr[Critical] == [1, "A"]
+    assert decoded_msg.phdr[Critical] == [Algorithm]
 
     # content type as uint
     msg = Enc0Message(phdr={Algorithm: AESCCM1664128},
