@@ -200,6 +200,11 @@ class _Ecdsa(CoseAlgorithm, ABC):
 class _AesMac(CoseAlgorithm, ABC):
     @classmethod
     @abstractmethod
+    def get_key_length(cls) -> int:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
     def get_digest_length(cls) -> int:
         raise NotImplementedError()
 
@@ -232,6 +237,11 @@ class _AesMac(CoseAlgorithm, ABC):
 
 
 class _HMAC(CoseAlgorithm, ABC):
+    @classmethod
+    @abstractmethod
+    def get_key_length(cls) -> int:
+        raise NotImplementedError()
+
     @classmethod
     @abstractmethod
     def get_digest_length(cls) -> int:
@@ -1223,6 +1233,10 @@ class HMAC25664(_HMAC):
     fullname = 'HMAC_256_64'
 
     @classmethod
+    def get_key_length(cls) -> int:
+        return 32
+
+    @classmethod
     def get_digest_length(cls) -> int:
         return 8
 
@@ -1235,6 +1249,10 @@ class HMAC25664(_HMAC):
 class HMAC256(_HMAC):
     identifier = 5
     fullname = 'HMAC_256'
+
+    @classmethod
+    def get_key_length(cls) -> int:
+        return 32
 
     @classmethod
     def get_digest_length(cls) -> int:
@@ -1251,6 +1269,10 @@ class HMAC384(_HMAC):
     fullname = 'HMAC_384'
 
     @classmethod
+    def get_key_length(cls) -> int:
+        return 48
+
+    @classmethod
     def get_digest_length(cls) -> int:
         return 48
 
@@ -1263,6 +1285,10 @@ class HMAC384(_HMAC):
 class HMAC512(_HMAC):
     identifier = 7
     fullname = 'HMAC_512'
+
+    @classmethod
+    def get_key_length(cls) -> int:
+        return 64
 
     @classmethod
     def get_digest_length(cls) -> int:
