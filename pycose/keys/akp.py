@@ -13,6 +13,7 @@ from pycose.algorithms import CoseAlgorithm, MlDsa44, MlDsa65, MlDsa87
 
 if TYPE_CHECKING:
     from pycose.keys.keyops import KEYOPS
+    from pycose.keys.keyparam import KeyParam
 
 PYCRYPTO_KEY_ALG = {
     mldsa.MLDSA44PrivateKey: MlDsa44,
