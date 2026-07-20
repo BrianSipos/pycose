@@ -433,7 +433,7 @@ class DirectKeyAgreement(CoseRecipient):
 
     def _compute_kek(self, target_alg: '_EncAlg', peer_key: 'EC2Key', local_key: 'EC2Key', kex_alg) -> bytes:
 
-        return kex_alg.derive_kek(peer_key.crv, local_key, peer_key, self.get_kdf_context(target_alg))
+        return kex_alg.derive_kek(local_key, peer_key, self.get_kdf_context(target_alg))
 
     def compute_cek(self, target_alg: '_EncAlg', ops: str) -> 'SK':
         alg = self.get_attr(headers.Algorithm)
@@ -516,7 +516,7 @@ class KeyAgreementWithKeyWrap(CoseRecipient):
 
     def _compute_kek(self, target_alg: '_EncAlg', peer_key: 'EC2Key', local_key: 'EC2Key', kex_alg) -> bytes:
 
-        key_bytes = kex_alg.derive_kek(peer_key.crv, local_key, peer_key, self.get_kdf_context(target_alg))
+        key_bytes = kex_alg.derive_kek(local_key, peer_key, self.get_kdf_context(target_alg))
         return key_bytes
 
     def encrypt(self, target_alg) -> bytes:

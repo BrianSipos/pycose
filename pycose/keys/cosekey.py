@@ -130,11 +130,11 @@ class CoseKey(MutableMapping, ABC):
 
     @staticmethod
     def _from_cryptography_key(
-        ext_key,
+        ext_key: object,
         optional_params: Optional[dict] = None
     ) -> "CoseKey":
         """
-        Initialize a COSE key from a cryptography key.
+        Initialize a COSE key from a :py:mod:`cryptography` key.
 
         :param ext_key: A cryptography key.
         :param optional_params: Optional parameters to add to the key.
@@ -316,6 +316,22 @@ class CoseKey(MutableMapping, ABC):
             names['BASE_IV'] = utils.truncate(names['BASE_IV'])
 
         return names
+
+    def _to_cryptography_privkey(self) -> object:
+        """ Extract a :py:mod:`cryptography` private key object if possible.
+        
+        :return: The private key object.
+        :raise ValueError: if no private key is possible.
+        """ 
+        raise ValueError('not supported for this key type')
+
+    def _to_cryptography_pubkey(self) -> object:
+        """ Extract a :py:mod:`cryptography` public key object if possible.
+        
+        :return: The public key object.
+        :raise ValueError: if no private key is possible.
+        """ 
+        raise ValueError('not supported for this key type')
 
 
 EphemeralKey.value_parser = CoseKey.from_dict

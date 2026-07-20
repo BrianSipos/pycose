@@ -5,6 +5,7 @@ import cbor2
 
 from pycose import headers
 from pycose.exceptions import CoseException
+from pycose.algorithms import _HpkeEnc
 from pycose.keys.keyops import DecryptOp, EncryptOp
 from pycose.keys.symmetric import SymmetricKey
 from pycose.messages.cosemessage import CoseMessage
@@ -40,14 +41,20 @@ class EncCommon(CoseMessage, metaclass=abc.ABCMeta):
         """
 
         alg = self.get_attr(headers.Algorithm)
-        nonce = self._get_nonce()
 
         if self.key is None:
             raise CoseException("Key cannot be None")
 
-        self.key.verify(SymmetricKey, alg, [DecryptOp])
+        if issubclass(alg, _HpkeEnc):
+            # TODO: work around variable key type
+            self.key.verify(object, alg, [DecryptOp])
+            enc = self.get_attr(headers.HpkeEk)
+            return alg.decrypt(key=self.key, enc=enc, ciphertext=self.payload, aad=self._enc_structure)
 
-        return alg.decrypt(key=self.key, ciphertext=self.payload, aad=self._enc_structure, nonce=nonce)
+        else:
+            self.key.verify(SymmetricKey, alg, [DecryptOp])
+            nonce = self._get_nonce()
+            return alg.decrypt(key=self.key, ciphertext=self.payload, aad=self._enc_structure, nonce=nonce)
 
     def encrypt(self, *args, **kwargs) -> bytes:
         """
@@ -62,11 +69,17 @@ class EncCommon(CoseMessage, metaclass=abc.ABCMeta):
             raise CoseException("Key cannot be None")
 
         alg = self.get_attr(headers.Algorithm)
-        nonce = self._get_nonce()
+        if issubclass(alg, _HpkeEnc):
+            # TODO: work around variable key type
+            self.key.verify(object, alg, [EncryptOp])
+            enc, ct = alg.encrypt(key=self.key, plaintext=self.payload, aad=self._enc_structure)
+            self.uhdr_update({headers.HpkeEk: enc})
+            return ct
 
-        self.key.verify(SymmetricKey, alg, [EncryptOp])
-
-        return alg.encrypt(key=self.key, data=self.payload, aad=self._enc_structure, nonce=nonce)
+        else:
+            self.key.verify(SymmetricKey, alg, [EncryptOp])
+            nonce = self._get_nonce()
+            return alg.encrypt(key=self.key, data=self.payload, aad=self._enc_structure, nonce=nonce)
 
     @property
     def _enc_structure(self) -> bytes:

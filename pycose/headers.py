@@ -13,6 +13,12 @@ class CoseHeaderAttribute(_CoseAttribute, ABC):
 
 
 @CoseHeaderAttribute.register_attribute()
+class HpkeEk(CoseHeaderAttribute):
+    identifier = -4
+    fullname = "EK"
+
+
+@CoseHeaderAttribute.register_attribute()
 class Reserved(CoseHeaderAttribute):
     identifier = 0
     fullname = "RESERVED"

@@ -1,4 +1,4 @@
-cryptography
+cryptography >= 49.0
 cbor2
 ecdsa
 attrs

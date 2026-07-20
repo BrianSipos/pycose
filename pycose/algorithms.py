@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from binascii import hexlify, unhexlify
 from hashlib import sha512, sha384, sha256
-from typing import TYPE_CHECKING, Optional, TypeVar
+from typing import TYPE_CHECKING, Optional, TypeVar, Union
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hpke
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.asymmetric.ec import ECDH
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
@@ -288,21 +289,18 @@ class _EcdhHkdf(CoseAlgorithm, ABC):
         raise NotImplementedError()
 
     @classmethod
-    def _ecdh(cls, curve: 'CoseCurve', private_key: 'EC2', public_key: 'EC2') -> bytes:
-        d_value = int(hexlify(private_key.d), 16)
-        x_value = int(hexlify(public_key.x), 16)
-        y_value = int(hexlify(public_key.y), 16)
-
-        d = ec.derive_private_key(d_value, curve.curve_obj, backend=default_backend())
-        p = ec.EllipticCurvePublicNumbers(x_value, y_value, curve.curve_obj)
-        p = p.public_key(backend=default_backend())
+    def _ecdh(cls, private_key: 'EC2', public_key: 'EC2') -> bytes:
+        if private_key.crv != public_key.crv:
+            raise CoseException(f"Mismatch of curve between {private_key.crv} and {public_key.crv}")
+        d = private_key._to_cryptography_privkey()
+        p = public_key._to_cryptography_pubkey()
 
         shared_key = d.exchange(ECDH(), p)
         return shared_key
 
     @classmethod
-    def derive_kek(cls, curve: 'CoseCurve', private_key: 'EC2', public_key: 'EC2', context: 'CoseKDFContext') -> bytes:
-        shared_secret = cls._ecdh(curve, private_key, public_key)
+    def derive_kek(cls, private_key: 'EC2', public_key: 'EC2', context: 'CoseKDFContext') -> bytes:
+        shared_secret = cls._ecdh(private_key, public_key)
 
         kdf = HKDF(algorithm=cls.get_hash_func(), length=context.supp_pub_info.key_data_length, salt=None,
                    info=context.encode(),
@@ -339,6 +337,50 @@ class _AesCcm(_EncAlg, ABC):
     def decrypt(cls, key: 'SK', nonce: bytes, ciphertext: bytes, aad: bytes) -> bytes:
         cipher = AESCCM(key=key.k, tag_length=cls.get_tag_length())
         return cipher.decrypt(nonce, data=ciphertext, associated_data=aad)
+
+if TYPE_CHECKING:
+    HpkeKey = Union['EC2', 'OKP'] # TODO: use AKP
+
+class _HpkeEnc(_EncAlg, ABC):
+    """ Integrated encryption using HPKE """
+
+    @classmethod
+    @abstractmethod
+    def get_kem(cls) -> hpke.KEM:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def get_kdf(cls) -> hpke.KDF:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def get_aead(cls) -> hpke.AEAD:
+        raise NotImplementedError()
+
+    @classmethod
+    def encrypt(cls, key: 'HpkeKey', plaintext: bytes, aad: bytes) -> (bytes, bytes):
+        pubkey = key._to_cryptography_pubkey()
+
+        kem = cls.get_kem()
+        enc_len = kem.enc_length()
+        suite = hpke.Suite(kem=kem, kdf=cls.get_kdf(), aead=cls.get_aead())
+
+        concat = suite.encrypt(plaintext=plaintext, public_key=pubkey, info=aad)
+        # separate the encapsulated key (enc) from ciphertext (ct)
+        enc, ct = concat[:enc_len], concat[enc_len:]
+
+        return (enc, ct)
+
+    @classmethod
+    def decrypt(cls, key: 'HpkeKey', enc: bytes, ciphertext: bytes, aad: bytes) -> bytes:
+        privkey = key._to_cryptography_privkey()
+
+        suite = hpke.Suite(kem=cls.get_kem(), kdf=cls.get_kdf(), aead=cls.get_aead())
+        # combine the encapsulated key (enc) and ciphertext for Suite API
+        concat = enc + ciphertext
+        return suite.decrypt(ciphertext=concat, private_key=privkey, info=aad)
 
 
 ##################################################
@@ -1417,6 +1459,66 @@ class AESCCM64128256(_AesCcm):
     @classmethod
     def get_key_length(cls) -> int:
         return 32
+
+
+@CoseAlgorithm.register_attribute()
+class HPKE_0(_HpkeEnc, ABC):
+    """ COSE HPKE Integrated Encryption using DHKEM(P-256, HKDF-SHA256) KEM, HKDF-SHA256 KDF, and AES-128-GCM AEAD. """
+
+    identifier = 35
+    fullname = 'HPKE_0'
+
+    @classmethod
+    def get_kem(cls) -> hpke.KEM:
+        return hpke.KEM.P256
+
+    @classmethod
+    def get_kdf(cls) -> hpke.KDF:
+        return hpke.KDF.HKDF_SHA256
+
+    @classmethod
+    def get_aead(cls) -> hpke.AEAD:
+        return hpke.AEAD.AES_128_GCM
+
+
+@CoseAlgorithm.register_attribute()
+class HPKE_1(_HpkeEnc, ABC):
+    """ COSE HPKE Integrated Encryption using DHKEM(P-384, HKDF-SHA384) KEM, HKDF-SHA384 KDF, and AES-256-GCM AEAD. """
+
+    identifier = 37
+    fullname = 'HPKE_1'
+
+    @classmethod
+    def get_kem(cls) -> hpke.KEM:
+        return hpke.KEM.P384
+
+    @classmethod
+    def get_kdf(cls) -> hpke.KDF:
+        return hpke.KDF.HKDF_SHA384
+
+    @classmethod
+    def get_aead(cls) -> hpke.AEAD:
+        return hpke.AEAD.AES_256_GCM
+
+
+@CoseAlgorithm.register_attribute()
+class HPKE_2(_HpkeEnc, ABC):
+    """ COSE HPKE Integrated Encryption using DHKEM(P-521, HKDF-SHA512) KEM, HKDF-SHA512 KDF, and AES-256-GCM AEAD. """
+
+    identifier = 39
+    fullname = 'HPKE_2'
+
+    @classmethod
+    def get_kem(cls) -> hpke.KEM:
+        return hpke.KEM.P521
+
+    @classmethod
+    def get_kdf(cls) -> hpke.KDF:
+        return hpke.KDF.HKDF_SHA512
+
+    @classmethod
+    def get_aead(cls) -> hpke.AEAD:
+        return hpke.AEAD.AES_256_GCM
 
 
 # set parser

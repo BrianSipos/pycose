@@ -305,6 +305,16 @@ class EC2Key(CoseKey):
         hdr = f'<COSE_Key(EC2Key): {_key}>'
         return hdr
 
+    def _to_cryptography_privkey(self) -> ec.EllipticCurvePrivateKey:
+        d_value = int(self.d.hex(), 16)
+        return ec.derive_private_key(d_value, self.crv.curve_obj, backend=default_backend())
+
+    def _to_cryptography_pubkey(self) -> ec.EllipticCurvePublicKey:
+        x_value = int(self.x.hex(), 16)
+        y_value = int(self.y.hex(), 16)
+        nums = ec.EllipticCurvePublicNumbers(x_value, y_value, self.crv.curve_obj)
+        return nums.public_key(backend=default_backend())
+
 
 EC2 = EC2Key
 
