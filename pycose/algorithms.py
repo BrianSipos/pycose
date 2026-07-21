@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Optional, TypeVar, Union
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hpke
-from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+from cryptography.hazmat.bindings._rust import openssl as rust_openssl
+from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.ec import ECDH
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey, Ed448PublicKey
@@ -91,17 +92,7 @@ class _Rsa(CoseAlgorithm, ABC):
         hash_cls = cls.get_hash_func()
         pad = cls.get_pad_func(hash_cls)
 
-        public_nums = rsa.RSAPublicNumbers(e=int.from_bytes(key.e, 'big'), n=int.from_bytes(key.n, 'big'))
-        private_nums = rsa.RSAPrivateNumbers(p=int.from_bytes(key.p, 'big'),
-                                             q=int.from_bytes(key.q, 'big'),
-                                             d=int.from_bytes(key.d, 'big'),
-                                             dmp1=int.from_bytes(key.dp, 'big'),
-                                             dmq1=int.from_bytes(key.dq, 'big'),
-                                             iqmp=int.from_bytes(key.qinv, 'big'),
-                                             public_numbers=public_nums)
-
-        sk = private_nums.private_key(backend=default_backend())
-
+        sk = key._to_cryptography_privkey()
         return sk.sign(data, pad, hash_cls())
 
     @classmethod
@@ -109,9 +100,7 @@ class _Rsa(CoseAlgorithm, ABC):
         hash_cls = cls.get_hash_func()
         pad = cls.get_pad_func(hash_cls)
 
-        public_nums = rsa.RSAPublicNumbers(e=int.from_bytes(key.e, 'big'), n=int.from_bytes(key.n, 'big'))
-        pk = public_nums.public_key(backend=default_backend())
-
+        pk = key._to_cryptography_pubkey()
         try:
             pk.verify(signature, data, pad, hash_cls())
             return True
@@ -138,26 +127,14 @@ class _RsaOaep(_Rsa, ABC):
     def key_wrap(cls, key: 'RSA', data: bytes) -> bytes:
         pad = cls.get_pad_func(cls.get_hash_func())
 
-        public_nums = rsa.RSAPublicNumbers(e=int.from_bytes(key.e, 'big'), n=int.from_bytes(key.n, 'big'))
-        pk = public_nums.public_key(backend=default_backend())
-
+        pk = key._to_cryptography_pubkey()
         return pk.encrypt(data, pad)
 
     @classmethod
     def key_unwrap(cls, key: 'RSA', data: bytes) -> bytes:
         pad = cls.get_pad_func(cls.get_hash_func())
 
-        public_nums = rsa.RSAPublicNumbers(e=int.from_bytes(key.e, 'big'), n=int.from_bytes(key.n, 'big'))
-        private_nums = rsa.RSAPrivateNumbers(p=int.from_bytes(key.p, 'big'),
-                                             q=int.from_bytes(key.q, 'big'),
-                                             d=int.from_bytes(key.d, 'big'),
-                                             dmp1=int.from_bytes(key.dp, 'big'),
-                                             dmq1=int.from_bytes(key.dq, 'big'),
-                                             iqmp=int.from_bytes(key.qinv, 'big'),
-                                             public_numbers=public_nums)
-
-        sk = private_nums.private_key(backend=default_backend())
-
+        sk = key._to_cryptography_privkey()
         return sk.decrypt(data, pad)
 
 
@@ -367,7 +344,8 @@ class _HpkeEnc(_EncAlg, ABC):
         enc_len = kem.enc_length()
         suite = hpke.Suite(kem=kem, kdf=cls.get_kdf(), aead=cls.get_aead())
 
-        concat = suite.encrypt(plaintext=plaintext, public_key=pubkey, info=aad)
+#        concat = suite.encrypt(plaintext=plaintext, public_key=pubkey, info=aad)
+        concat = rust_openssl.hpke._encrypt_with_aad(suite=suite, plaintext=plaintext, public_key=pubkey, info=None, aad=aad)
         # separate the encapsulated key (enc) from ciphertext (ct)
         enc, ct = concat[:enc_len], concat[enc_len:]
 
@@ -377,10 +355,19 @@ class _HpkeEnc(_EncAlg, ABC):
     def decrypt(cls, key: 'HpkeKey', enc: bytes, ciphertext: bytes, aad: bytes) -> bytes:
         privkey = key._to_cryptography_privkey()
 
-        suite = hpke.Suite(kem=cls.get_kem(), kdf=cls.get_kdf(), aead=cls.get_aead())
+        kem = cls.get_kem()
+        enc_len = kem.enc_length()
+        suite = hpke.Suite(kem=kem, kdf=cls.get_kdf(), aead=cls.get_aead())
+
+        if len(enc) != enc_len:
+            raise CoseException(f"Invalid EK length, expected {enc_len} got {len(enc)}")
+        print('enc', enc.hex())
+        print('ct', ciphertext.hex())
+        print('aad', aad.hex())
         # combine the encapsulated key (enc) and ciphertext for Suite API
         concat = enc + ciphertext
-        return suite.decrypt(ciphertext=concat, private_key=privkey, info=aad)
+#        return suite.decrypt(ciphertext=concat, private_key=privkey, info=aad)
+        return rust_openssl.hpke._decrypt_with_aad(suite=suite, ciphertext=concat, private_key=privkey, info=None, aad=aad)
 
 
 ##################################################

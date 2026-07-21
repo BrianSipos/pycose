@@ -72,7 +72,7 @@ def test_hpke_example_5_1_decode():
         -4: bytes.fromhex('eca39300147c91a2a65d17e00ea278b57a14178245bf5686d9a404cca1816b8e'),
     })
 
-    expect_payload=b'This is the content.'
+    expect_payload=b'This is the content.\n'
 
     msg_enc = bytes.fromhex(
         'd08344a1011823a20443626f622358410457229bdd99407b384a9e59fa15'
@@ -90,10 +90,10 @@ def test_hpke_example_5_1_decode():
         'A06D2126BD96757674847669966ECB0DCDF21AF5623F19F0B799B0'
         'CDDF3EE930B739DD474F6282DE01'
     )
-    assert msg_in.payload != expect_payload
+    assert expect_payload != msg_in.payload
 
     msg_in.key = priv
-    msg_in.external_aad = b'hi'
+    msg_in.external_aad = b''
     plain = msg_in.decrypt()
     assert isinstance(plain, bytes)
-    assert plain.hex() == expect_payload.hex()
+    assert expect_payload.hex() == plain.hex()

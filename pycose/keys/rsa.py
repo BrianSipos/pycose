@@ -318,5 +318,21 @@ class RSAKey(CoseKey):
         hdr = f'<COSE_Key(RSAKey): {self._key_repr()}>'
         return hdr
 
+    def _to_cryptography_privkey(self) -> rsa.RSAPrivateKey:
+        public_nums = rsa.RSAPublicNumbers(e=int.from_bytes(self.e, 'big'), n=int.from_bytes(self.n, 'big'))
+        private_nums = rsa.RSAPrivateNumbers(p=int.from_bytes(self.p, 'big'),
+                                             q=int.from_bytes(self.q, 'big'),
+                                             d=int.from_bytes(self.d, 'big'),
+                                             dmp1=int.from_bytes(self.dp, 'big'),
+                                             dmq1=int.from_bytes(self.dq, 'big'),
+                                             iqmp=int.from_bytes(self.qinv, 'big'),
+                                             public_numbers=public_nums)
+
+        return private_nums.private_key(backend=default_backend())
+
+    def _to_cryptography_pubkey(self) -> rsa.RSAPublicKey:
+        public_nums = rsa.RSAPublicNumbers(e=int.from_bytes(self.e, 'big'), n=int.from_bytes(self.n, 'big'))
+        return public_nums.public_key(backend=default_backend())
+
 
 RSA = RSAKey
