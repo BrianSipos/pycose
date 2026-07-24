@@ -9,9 +9,10 @@ from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.asymmetric.ec import ECDH
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey, Ed448PublicKey
-from cryptography.hazmat.primitives.ciphers import modes, Cipher
+from cryptography.hazmat.primitives.ciphers import modes, Cipher, BlockCipherAlgorithm
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM, AESCCM
-from cryptography.hazmat.primitives.ciphers.algorithms import AES
+from cryptography.hazmat.primitives.ciphers.algorithms import AES, AES128, AES256
+from cryptography.hazmat.primitives.cmac import CMAC
 from cryptography.hazmat.primitives.hashes import Hash, HashAlgorithm, SHA1, SHA256, SHA512, SHA384, SHAKE128, SHAKE256
 from cryptography.hazmat.primitives.hmac import HMAC
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
@@ -20,7 +21,7 @@ from ecdsa.curves import Curve, NIST521p, NIST384p, NIST256p
 from ecdsa.ellipticcurve import Point
 from ecdsa.keys import SigningKey, VerifyingKey, BadSignatureError
 
-from pycose.exceptions import CoseException
+from pycose.exceptions import CoseException, CoseInvalidKey
 from pycose.headers import Algorithm
 from pycose.utils import _CoseAttribute
 
@@ -1417,6 +1418,112 @@ class AESCCM64128256(_AesCcm):
     @classmethod
     def get_key_length(cls) -> int:
         return 32
+
+class _CMAC(CoseAlgorithm, ABC):
+    
+    @classmethod
+    @abstractmethod
+    def get_cipher(cls, key: bytes) -> BlockCipherAlgorithm:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def get_key_length(cls) -> int:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def get_tag_length(cls) -> int:
+        raise NotImplementedError()
+
+    @classmethod
+    def compute_tag(cls, key: "SymmetricKey", data: bytes) -> bytes:
+        if len(key.k) != cls.get_key_length():
+            raise CoseInvalidKey
+
+        h = CMAC(cls.get_cipher(key.k))
+        h.update(data)
+        full_tag = h.finalize()
+
+        return full_tag[: cls.get_tag_length()]
+
+    @classmethod
+    def verify_tag(cls, key: "SymmetricKey", tag: bytes, data: bytes) -> bool:
+        computed_tag = cls.compute_tag(key, data)
+
+        return tag == computed_tag
+
+
+@CoseAlgorithm.register_attribute()
+class AESCMAC128_96(_CMAC):
+    identifier = 35
+    fullname = "AES_CMAC_128_96"
+
+    @classmethod
+    def get_cipher(cls, key: bytes) -> BlockCipherAlgorithm:
+        return AES128(key)
+
+    @classmethod
+    def get_key_length(cls) -> int:
+        return 16
+
+    @classmethod
+    def get_tag_length(cls) -> int:
+        return 12
+
+
+@CoseAlgorithm.register_attribute()
+class AESCMAC256_96(_CMAC):
+    identifier = 36
+    fullname = "AES_CMAC_256_96"
+
+    @classmethod
+    def get_cipher(cls, key: bytes) -> BlockCipherAlgorithm:
+        return AES256(key)
+
+    @classmethod
+    def get_key_length(cls) -> int:
+        return 32
+
+    @classmethod
+    def get_tag_length(cls) -> int:
+        return 12
+
+
+@CoseAlgorithm.register_attribute()
+class AESCMAC128_128(_CMAC):
+    identifier = 37
+    fullname = "AES_CMAC_128_128"
+
+    @classmethod
+    def get_cipher(cls, key: bytes) -> BlockCipherAlgorithm:
+        return AES128(key)
+
+    @classmethod
+    def get_key_length(cls) -> int:
+        return 16
+
+    @classmethod
+    def get_tag_length(cls) -> int:
+        return 16
+
+
+@CoseAlgorithm.register_attribute()
+class AESCMAC256_128(_CMAC):
+    identifier = 38
+    fullname = "AES_CMAC_256_128"
+
+    @classmethod
+    def get_cipher(cls, key: bytes) -> BlockCipherAlgorithm:
+        return AES256(key)
+
+    @classmethod
+    def get_key_length(cls) -> int:
+        return 32
+
+    @classmethod
+    def get_tag_length(cls) -> int:
+        return 16
 
 
 # set parser
