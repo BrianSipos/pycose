@@ -1437,7 +1437,7 @@ class _CMAC(CoseAlgorithm, ABC):
         raise NotImplementedError()
 
     @classmethod
-    def compute_tag(cls, key: "SymmetricKey", data: bytes) -> bytes:
+    def compute_tag(cls, key: "SK", data: bytes) -> bytes:
         if len(key.k) != cls.get_key_length():
             raise CoseInvalidKey
 
@@ -1448,7 +1448,7 @@ class _CMAC(CoseAlgorithm, ABC):
         return full_tag[: cls.get_tag_length()]
 
     @classmethod
-    def verify_tag(cls, key: "SymmetricKey", tag: bytes, data: bytes) -> bool:
+    def verify_tag(cls, key: "SK", tag: bytes, data: bytes) -> bool:
         computed_tag = cls.compute_tag(key, data)
 
         return tag == computed_tag
