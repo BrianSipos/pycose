@@ -1,4 +1,5 @@
 import os
+import sys
 from binascii import unhexlify
 
 import pytest
@@ -7,7 +8,7 @@ from cryptography.hazmat.primitives.asymmetric import mldsa
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
 
 from pycose.algorithms import MlDsa44, MlDsa65, MlDsa87
-from pycose.exceptions import CoseInvalidKey, CoseIllegalKeyType, CoseIllegalAlgorithm, CoseIllegalKeyOps
+from pycose.exceptions import CoseInvalidKey, CoseIllegalKeyType, CoseIllegalKeyOps
 from pycose.keys import AKPKey, CoseKey
 from pycose.keys.keyops import SignOp, MacVerifyOp
 from pycose.keys.keyparam import KpKty, AKPKpPub, AKPKpPriv, KpAlg, KpKeyOps
@@ -66,6 +67,10 @@ def test_akp_public_keys_from_dicts(kty_attr, kty_value, alg_attr, alg_value, pu
 
 
 @pytest.mark.parametrize('key_class', [mldsa.MLDSA44PrivateKey, mldsa.MLDSA65PrivateKey, mldsa.MLDSA87PrivateKey])
+@pytest.mark.xfail(
+    sys.version_info < (3, 9),
+    reason="Feature not supported in older cryptography versions"
+)
 def test_akp_private_key_from_pem(key_class):
     private_key = key_class.generate()
     pem = private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
@@ -74,6 +79,10 @@ def test_akp_private_key_from_pem(key_class):
 
 
 @pytest.mark.parametrize('key_class', [mldsa.MLDSA44PrivateKey, mldsa.MLDSA65PrivateKey, mldsa.MLDSA87PrivateKey])
+@pytest.mark.xfail(
+    sys.version_info < (3, 9),
+    reason="Feature not supported in older cryptography versions"
+)
 def test_akp_public_key_from_pem(key_class):
     private_key = key_class.generate()
     public_key = private_key.public_key()
@@ -83,6 +92,10 @@ def test_akp_public_key_from_pem(key_class):
 
 
 @pytest.mark.parametrize('alg', [MlDsa44, MlDsa65, MlDsa87, 'MLDSA87', -50])
+@pytest.mark.xfail(
+    sys.version_info < (3, 9),
+    reason="Feature not supported in older cryptography versions"
+)
 def test_akp_key_generation_encoding_decoding(alg):
     trials = 256
 
@@ -94,6 +107,10 @@ def test_akp_key_generation_encoding_decoding(alg):
 
 
 @pytest.mark.parametrize('alg', [MlDsa44, MlDsa65, MlDsa87, 'MLDSA87', -50])
+@pytest.mark.xfail(
+    sys.version_info < (3, 9),
+    reason="Feature not supported in older cryptography versions"
+)
 def test_akp_key_generation(alg):
     key = AKPKey.generate_key(alg)
 
@@ -154,6 +171,10 @@ def test_existing_non_empty_keyops_list():
     assert KpKeyOps in key
 
 
+@pytest.mark.xfail(
+    sys.version_info < (3, 9),
+    reason="Feature not supported in older cryptography versions"
+)
 def test_key_ops_setter_getter():
     key = AKPKey.generate_key('MLDSA87')
     key.key_ops = [SignOp]
@@ -197,6 +218,10 @@ def test_key_set_alg():
     assert key.alg == MlDsa65
 
 
+@pytest.mark.xfail(
+    sys.version_info < (3, 9),
+    reason="Feature not supported in older cryptography versions"
+)
 def test_key_generation_with_optional_parameters():
     key = AKPKey.generate_key(alg='MLDSA87', optional_params={'KpKid': 4})
     assert key is not None

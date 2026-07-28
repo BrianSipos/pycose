@@ -489,6 +489,94 @@ class RsaPkcs1Sha256(_RsaPkcs1):
         return SHA256
 
 
+class _Mldsa(CoseAlgorithm, ABC):
+    """ Fully-specified ML-DSA family. """
+
+    private_key_cls = None
+    ''' Override in derived class '''
+    public_key_cls = None
+    ''' Override in derived class '''
+
+    @classmethod
+    def sign(cls, key: 'AKP', data: bytes) -> bytes:
+
+        pkey = cls.private_key_cls.from_seed_bytes(key.priv)
+
+        return pkey.sign(data=data, context=None)
+
+    @classmethod
+    def verify(cls, key: 'AKP', data: bytes, signature: bytes) -> bool:
+
+        vkey = cls.public_key_cls.from_public_bytes(key.pub)
+
+        try:
+            vkey.verify(signature=signature, data=data, context=None)
+            return True
+        except InvalidSignature:
+            return False
+
+
+@CoseAlgorithm.register_attribute()
+class MlDsa87(_Mldsa):
+    """
+    ML-DSA-87
+
+    Attributes:
+        identifier     -50
+        fullname       MLDSA87
+
+    """
+
+    identifier = -50
+    fullname = "MLDSA87"
+
+    private_key_cls = MLDSA87PrivateKey
+    """ Key class for this algorithm """
+    public_key_cls = MLDSA87PublicKey
+    """ Key class for this algorithm """
+
+
+@CoseAlgorithm.register_attribute()
+class MlDsa65(_Mldsa):
+    """
+    ML-DSA-65
+
+    Attributes:
+        identifier     -49
+        fullname       MLDSA65
+
+    """
+
+    identifier = -49
+    fullname = "MLDSA65"
+
+    private_key_cls = MLDSA65PrivateKey
+    """ Key class for this algorithm """
+    public_key_cls = MLDSA65PublicKey
+    """ Key class for this algorithm """
+
+
+@CoseAlgorithm.register_attribute()
+class MlDsa44(_Mldsa):
+    """
+    ML-DSA-44
+
+    Attributes:
+        identifier     -48
+        fullname       MLDSA44
+
+    """
+
+    identifier = -48
+    fullname = "MLDSA44"
+
+    private_key_cls = MLDSA44PrivateKey
+    """ Key class for this algorithm """
+    public_key_cls = MLDSA44PublicKey
+    """ Key class for this algorithm """
+
+
+
 @CoseAlgorithm.register_attribute()
 class Ed448(CoseAlgorithm):
     """

@@ -13,6 +13,7 @@ from pycose.algorithms import CoseAlgorithm, MlDsa44, MlDsa65, MlDsa87
 
 if TYPE_CHECKING:
     from pycose.keys.keyops import KEYOPS
+    from pycose.keys.keyparam import KeyParam
 
 PYCRYPTO_KEY_ALG = {
     mldsa.MLDSA44PrivateKey: MlDsa44,
@@ -219,7 +220,7 @@ class AKPKey(CoseKey):
         if self._key_transform(key) != KpKty and self._key_transform(key) != KpAlg:
             if self._key_transform(key) == AKPKpPriv and AKPKpPub not in self.store:
                 pass
-            if self._key_transform(key) == AKPKpPub and AKPKpPriv not in self.store:
+            elif self._key_transform(key) == AKPKpPub and AKPKpPriv not in self.store:
                 pass
             else:
                 return super(AKPKey, self).__delitem__(key)
