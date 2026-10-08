@@ -1421,16 +1421,11 @@ class AESCCM64128256(_AesCcm):
     def get_key_length(cls) -> int:
         return 32
 
-class _CMAC(CoseAlgorithm, ABC):
+class _CMAC(_SymmetricAlg, ABC):
     
     @classmethod
     @abstractmethod
     def get_cipher(cls, key: bytes) -> BlockCipherAlgorithm:
-        raise NotImplementedError()
-
-    @classmethod
-    @abstractmethod
-    def get_key_length(cls) -> int:
         raise NotImplementedError()
 
     @classmethod
